@@ -23,7 +23,7 @@
         - Warning (triangle)
         - Indication (square)
         - NOTE: With respect to previous dataset as the German Traffic Sign Recognition Benchmark, the superclasses are different. Particularly there is the 'indication' superclass that is completely new while the "german prohibitory" and "german mandatory" are here merged to form the prohibitory superclass.
-- [GTSDB (german)](http://benchmark.ini.rub.de/?section=gtsdb&subsection=dataset)
+- [GTSDB (german)](http://benchmark.ini.rub.de/?section=gtsdb&subsection=dataset) (Recommend to work on this datset first)
     - 1213 annotated signs in 900 images
     - 3 superclasses:
         - Prohibitive
