@@ -1,0 +1,15 @@
+data
+.ipynb_checkpoints
+*.h5
+models
+*.swp
+*.p
+.DS_Store
+._.DS_Store
+checkpoint
+*.meta
+*.index
+*.data-00000-of-00001
+*._traffic-signs-data
+Notes.ipynb
+/config.json
