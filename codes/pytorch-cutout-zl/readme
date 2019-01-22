@@ -5,3 +5,7 @@
 4. Add a new forder named 'data', then put into our datset
 5. Add a new forder named 'logs'
 6. Add a new forder named 'checkpoints'
+
+
+
+Ref: https://github.com/scikit-learn-contrib/imbalanced-learn
