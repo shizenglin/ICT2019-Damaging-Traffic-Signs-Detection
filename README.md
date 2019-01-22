@@ -1,9 +1,8 @@
 # ICT2019-Damaging-Traffic-Signs-Detection
 
 In order to make the pipeline easier there is a `datasets.py` file.
-Currently, it contains 2 main objects:
-+ `GTSRB_Damaged` pytorch dataset class. It returns Image Tensor, Traffic sign label, Damage label
-+ `split_ImageFolder` function for train / test split
+
+`GTSRB_Damaged` pytorch dataset class. It returns Image Tensor, Traffic sign label, Damage label
 
 ```python
 from torchvision import transforms
