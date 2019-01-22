@@ -65,8 +65,9 @@ class GTSRB_Seq(torch.utils.data.Dataset):
         
         for class_idx in range(GTSRB_Seq.num_classes):
             dir_name = os.path.join(root, '{:05d}/*.ppm'.format(class_idx))
-            num_files = len(glob.glob(dir_name))
-            num_seqs = num_files // GTSRB_Seq.images_per_sign
+            all_filenames = glob.glob(dir_name)
+            filtered_prefixes = map(lambda x: x[:-9], all_filenames)
+            num_seqs = len(set(filtered_prefixes))
             
             for seq_idx in range(num_seqs):
                 seq = []
