@@ -71,7 +71,8 @@ train_dataset_transform = transforms.Compose([
     transforms.RandomCrop(32, padding=4),
     transforms.ToTensor()
 ])
-
+if args.cutout:
+    train_dataset_transform.transforms.append(Cutout(n_holes=args.n_holes, length=args.length))
 
 test_dataset_transform = transforms.Compose([
     transforms.Resize(32), 
