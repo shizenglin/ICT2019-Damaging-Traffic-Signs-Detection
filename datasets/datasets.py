@@ -56,7 +56,7 @@ class GTSRB_Seq(torch.utils.data.Dataset):
     images_per_sign = 30
 
     def __init__(self, root, transform=None):
-        super().__init__()
+        super(GTSRB_Seq, self).__init__()
         root = os.path.expanduser(root)
         paths = _get_all_csv_paths(root)
         self.damage_dict = _join_csv_into_dict_by_paths(paths)
