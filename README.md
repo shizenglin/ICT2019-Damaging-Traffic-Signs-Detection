@@ -7,21 +7,26 @@ Currently, it contains 2 main objects:
 
 ```python
 from torchvision import transforms
+from torch.utils.data.dataset import random_split
 import datasets
 
 data = datasets.GTSRB_Damaged('./GTSRB/Final_Training/images')
-train_dataset, test_dataset = datasets.split_ImageFolder(data)
 
-train_dataset.transform = transforms.Compose([
-    transforms.Resize(64), 
-    transforms.RandomAffine(10, [0.1, 0.1], [0.9, 1.1], 0.1),
+test_size = int(len(dataset) * 0.2)
+train_size = len(dataset) - test_size
+train_dataset, test_dataset = random_split(dataset, [train_size, test_size])
+
+train_dataset.dataset.transform = transforms.Compose([
+    transforms.Resize(64),
     transforms.RandomCrop(64, padding=4),
-    transforms.ToTensor()
+    transforms.ToTensor(),
+    transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
 ])
 
-test_dataset.transform = transforms.Compose([
-    transforms.Resize(64), 
+test_dataset.dataset.transform = transforms.Compose([
+    transforms.Resize(64),
     transforms.CenterCrop(64),
-    transforms.ToTensor()
+    transforms.ToTensor(),
+    transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
 ])
 ```
