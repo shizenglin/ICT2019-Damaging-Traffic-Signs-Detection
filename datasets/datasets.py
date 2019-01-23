@@ -122,21 +122,21 @@ class FlattenSequences(Dataset):
 
     def __init__(self, sequence_dataset):
         super(FlattenSequences, self).__init__()
-        self.dataset = sequence_dataset
+        self.sequence_dataset = sequence_dataset
         self.table = []
-        for seq_idx, sequence in enumerate(self.dataset):
+        for seq_idx, sequence in enumerate(self.sequence_dataset):
             length = len(sequence[0])
             self.table.extend([(seq_idx, i) for i in range(length)])
 
     def __getitem__(self, index):
         seq_idx, img_idx = self.table[index]
-        sequence = self.dataset[seq_idx]
+        sequence = self.sequence_dataset[seq_idx]
         return sequence[0][img_idx], sequence[1][img_idx], sequence[2][img_idx]
 
     def __len__(self):
         return len(self.table)
 
     def __repr__(self):
-        str_ = 'Flatten {}'.format(self.dataset.__class__.__name__)
+        str_ = 'Flatten {}'.format(self.sequence_dataset.__class__.__name__)
         str_ += '\n\tImages: {}'.format(len(self))
         return str_
