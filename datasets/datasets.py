@@ -80,8 +80,8 @@ class GTSRB_Seq(torch.utils.data.Dataset):
                     if os.path.exists(image_path):
                         seq.append((image_path, class_idx, damage_dict[image_path]))
                 
-                assert len(set([s[1] for s in seq])) == 1
-                assert len(set([s[2] for s in seq])) == 1
+                assert len(set(s[1] for s in seq)) == 1
+                assert len(set(s[2] for s in seq)) == 1
                 images = [s[0] for s in seq]
                 if size_filter:
                     images = filter(lambda x: size_filter(Image.open(x).size), images)
@@ -109,4 +109,25 @@ class GTSRB_Seq(torch.utils.data.Dataset):
         str_ += '\n\tImages: {}'.format(sum([len(s[0]) for s in self.sequences]))
         str_ += '\n\tSign Classes: {}'.format(GTSRB_Seq.num_classes)
         str_ += '\n\tDamaged: {}'.format(sum([len(s[0]) * s[2] for s in self.sequences]))
+        return str_
+    
+    
+class FlattenSequences(torch.utils.data.Dataset):
+    
+    def __init__(self, sequence_dataset):
+        super(FlattenSequences, self).__init__()
+        self.dataset = sequence_dataset
+        self.items = []
+        for sequence in iter(self.dataset):
+            self.items.extend([s for s in zip(*sequence)])
+        
+    def __getitem__(self, index):
+        return self.items[index]
+    
+    def __len__(self):
+        return len(self.items)
+    
+    def __repr__(self):
+        str_ = 'Flatten {}'.format(self.dataset.__class__.__name__)
+        str_ += '\n\tImages: {}'.format(len(self))
         return str_
