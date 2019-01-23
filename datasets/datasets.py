@@ -55,11 +55,12 @@ class GTSRB_Seq(torch.utils.data.Dataset):
     num_classes = 43
     images_per_sign = 30
 
-    def __init__(self, root, transform=None):
+    def __init__(self, root, transform=None, size_filter=None):
         super(GTSRB_Seq, self).__init__()
         root = os.path.expanduser(root)
         paths = _get_all_csv_paths(root)
-        self.damage_dict = _join_csv_into_dict_by_paths(paths)
+        damage_dict = _join_csv_into_dict_by_paths(paths)
+        
         self.transform = transform
         self.sequences = []
         
@@ -77,9 +78,15 @@ class GTSRB_Seq(torch.utils.data.Dataset):
                     ))
                     
                     if os.path.exists(image_path):
-                        seq.append((image_path, class_idx, self.damage_dict[image_path]))
-                        
-                self.sequences.append(seq)
+                        seq.append((image_path, class_idx, damage_dict[image_path]))
+                
+                assert len(set([s[1] for s in seq])) == 1
+                assert len(set([s[2] for s in seq])) == 1
+                images = [s[0] for s in seq]
+                if size_filter:
+                    images = filter(lambda x: size_filter(Image.open(x).size), images)
+                    images = list(images)
+                self.sequences.append((images, seq[0][1], seq[0][2]))
 
     def __getitem__(self, index):
         """
@@ -87,10 +94,19 @@ class GTSRB_Seq(torch.utils.data.Dataset):
             image_tensors, class_labels, damage_labels
         """
         seq = self.sequences[index]
-        images = [Image.open(s[0]) for s in seq]
+        images, sign_class, damage_class = seq
+        images = [Image.open(im) for im in images]
         if self.transform:
-            images = [self.tranform(img) for img in images] 
-        return images, [s[1] for s in seq], [s[2] for s in seq]
+            images = [self.transform(img) for img in images] 
+        return images, [sign_class] * len(images), [damage_class] * len(images)
         
     def __len__(self):
         return len(self.sequences)
+    
+    def __repr__(self):
+        str_ = name = self.__class__.__name__
+        str_ += '\n\tSequences: {}'.format(len(self))
+        str_ += '\n\tImages: {}'.format(sum([len(s[0]) for s in self.sequences]))
+        str_ += '\n\tSign Classes: {}'.format(GTSRB_Seq.num_classes)
+        str_ += '\n\tDamaged: {}'.format(sum([len(s[0]) * s[2] for s in self.sequences]))
+        return str_
