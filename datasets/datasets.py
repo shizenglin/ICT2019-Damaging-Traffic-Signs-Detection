@@ -6,6 +6,7 @@ import glob
 from PIL import Image
 import pandas as pd
 
+
 from torch.utils.data.dataset import Dataset
 from torchvision.datasets import ImageFolder
 
@@ -145,135 +146,20 @@ class FlattenSequences(Dataset):
 import random
 
 
-class GTSRB_BAM(torch.utils.data.Dataset):
+class BAM(Dataset):
 
-    def __init__(self, gtsrb_root, bam_root,
-                 conversion_table_path='./convention_conversion.csv',
-                 train=False, test_split=0.2, transform=None):
-        super(GTSRB_BAM, self).__init__()
-
-        self.transform = transform
-        self.class_names = pd.read_csv(conversion_table_path).set_index('NL')['DL'][:42].to_dict()
-
-        self.bam_sequences = self._get_bam_sequences(bam_root)
-        self.gtsrb_sequences = self._get_gtsrb_sequences(gtsrb_root)
-
-        self.all_sequences = self.bam_sequences + self.gtsrb_sequences
-
-        random.seed(42)
-        random.shuffle(self.all_sequences)
-
-        if train:
-            self.used_sequences = self.all_sequences[int(test_split * len(self.all_sequences)):]
-
-        else:
-            self.used_sequences = self.all_sequences[:int(test_split * len(self.all_sequences))]
-
-    def _get_bam_sequences(self, bam_root):
-
-        annotations = pd.read_csv(f'{bam_root}/annotations.csv')
-
-        for v in annotations['signtype'].value_counts().index:
-            if v not in self.class_names:
-                self.class_names[v] = len(self.class_names)
-
-        annotations['signtype'].replace(self.class_names, inplace=True)
-
-        #         sequences = annotations.groupby(['latitude', 'longitude', 'signtype'])['filename'].apply(list).tolist()
-        #         classes = annotations.groupby(['latitude', 'longitude', 'signtype'])['signtype'].apply(list).tolist()
-
-        annotations['class'] = annotations['class'].fillna('undamaged')
-
-        damage_types = ['scratched', 'graffity', 'dirty']
-
-        annotations['damaged'] = 0
-
-        annotations['damaged'][annotations['class'].isin(damage_types)] = 1
-
-        assert annotations['damaged'].nunique() == 2
-
-        annotations['signtype'] = annotations['signtype'].fillna('UNK')
-
-        sequences = annotations.groupby('coordinates_string')['filename'].apply(list)
-        classes = annotations.groupby('coordinates_string')['signtype'].apply(list)
-        damaged = annotations.groupby('coordinates_string')['damaged'].apply(list)
-
-        sequences = [[f'{bam_root}/images/{path}' for path in seq] for seq in sequences]
-
-        combined = [
-            [(sequences[i][j], classes[i][j], damaged[i][j]) for j in range(len(sequences[i]))] for
-            i in range(len(sequences))]
-
-        return combined
-
-    def _get_gtsrb_sequences(self, gtsrb_root, classes_to_use=range(43)):
-
-        german_csvs = _get_all_csv_paths(gtsrb_root)
-
-        german_csvs = [gcsv for gcsv in german_csvs if 'Test' not in gcsv]
-        sequences = []
-        classes = []
-        damaged = []
-
-        for c in classes_to_use:
-
-            dir = (f"{gtsrb_root}/Final_Training/Images/{c:05d}")
-            images = [f for f in os.listdir(dir) if f[-3:] == 'ppm']
-
-            csv_path = f'{dir}/GT-{dir[-5:]}.csv'
-
-            csv = pd.read_csv(csv_path)
-
-            num_sequences = max(image.split('_')[0] for image in images)
-
-            # Each sequence has 30 images.
-            sequence = []
-            class_id = []
-            damage = []
-
-            for i in range(int(num_sequences)):
-                filename = f'{dir[-5:]}_{i:05d}.ppm'
-                path = f'{dir}/{filename}'
-
-                class_id.append(csv[csv['Filename'] == filename]['ClassId'])
-                damage.append(csv[csv['Filename'] == filename]['Damage'])
-                sequence.append(path)
-
-            damaged.append(damage)
-            classes.append(class_id)
-            sequences.append(sequence)
-
-        combined = [
-            [(sequences[i][j], classes[i][j], damaged[i][j]) for j in range(len(sequences[i]))] for
-            i in range(len(sequences))]
-
-        return combined
-
-    def __getitem__(self, index):
-
-        """Return image, image label and damaged label."""
-
-        seq = self.used_sequences[index]
-        images = [Image.open(s[0]) for s in seq]
-        if self.transform:
-            images = [self.tranform(img) for img in images]
-        return images, [s[1] for s in seq], [s[2] for s in seq]
-
-
-    def __len__(self):
-        return len(self.used_sequences)
-
-
-class BAM(torch.utils.data.Dataset):
-
-    def __init__(self, bam_root, conversion_table_path='./convention_conversion.csv',
-                 train=False, test_split=0.2, transform=None):
+    def __init__(self, bam_root, damage_types=['graffity'], fillna_class=False, use_stacked=False,
+                 use_unknown_types=True, min_area=25 ** 2,
+                 train=False, test_split=0.2, transform=None,
+                 conversion_table_path='../../datasets/convention_conversion.csv'):
         super(BAM, self).__init__()
 
         self.transform = transform
-        self.class_names = pd.read_csv(conversion_table_path).set_index('NL')['DL'][:42].to_dict()
+        self.class_names = pd.read_csv(conversion_table_path).set_index('NL')['DL'].dropna().astype(
+            int).to_dict()
 
-        self.bam_sequences = self._get_bam_sequences(bam_root)
+        self.bam_sequences = self._get_bam_sequences(bam_root, use_stacked, use_unknown_types,
+                                                     min_area, damage_types, fillna_class)
 
         self.all_sequences = self.bam_sequences
 
@@ -286,30 +172,42 @@ class BAM(torch.utils.data.Dataset):
         else:
             self.used_sequences = self.all_sequences[:int(test_split * len(self.all_sequences))]
 
-    def _get_bam_sequences(self, bam_root):
+    def _get_bam_sequences(self, bam_root, use_stacked, use_unknown_types, min_area, damage_types,
+                           fillna_class):
 
         annotations = pd.read_csv(f'{bam_root}/annotations.csv')
+
+        if fillna_class:
+            annotations['class'] = annotations['class'].fillna('undamaged')
+
+        else:
+            annotations = annotations.dropna(subset=['class'])
+
+        annotations['signtype'] = annotations['signtype'].fillna('UNK')
 
         for v in annotations['signtype'].value_counts().index:
             if v not in self.class_names:
                 self.class_names[v] = len(self.class_names)
 
-        annotations['signtype'].replace(self.class_names, inplace=True)
+        annotations['signtype'] = annotations['signtype'].replace(self.class_names).astype(int)
+
+        if not use_unknown_types:
+            annotations = annotations[annotations['signtype'] != 'UNK']
+
+        if not use_stacked:
+            annotations = annotations[annotations['stacked'] == 0]
+
+        annotations = annotations[annotations['area'] > min_area]
 
         #         sequences = annotations.groupby(['latitude', 'longitude', 'signtype'])['filename'].apply(list).tolist()
         #         classes = annotations.groupby(['latitude', 'longitude', 'signtype'])['signtype'].apply(list).tolist()
-
-        annotations['class'] = annotations['class'].fillna('undamaged')
-
-        damage_types = ['scratched', 'graffity', 'dirty']
-
         annotations['damaged'] = 0
+
+        annotations = annotations[annotations['class'].isin(damage_types + ['undamaged'])]
 
         annotations['damaged'][annotations['class'].isin(damage_types)] = 1
 
         assert annotations['damaged'].nunique() == 2
-
-        annotations['signtype'] = annotations['signtype'].fillna('UNK')
 
         sequences = annotations.groupby('coordinates_string')['filename'].apply(list)
         classes = annotations.groupby('coordinates_string')['signtype'].apply(list)
@@ -331,9 +229,7 @@ class BAM(torch.utils.data.Dataset):
         images = [Image.open(s[0]) for s in seq]
         if self.transform:
             images = [self.tranform(img) for img in images]
-
         return images, [s[1] for s in seq], [s[2] for s in seq]
-
 
     def __len__(self):
         return len(self.used_sequences)
