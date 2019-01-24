@@ -5,38 +5,33 @@ In order to make the pipeline easier there is a `datasets.py` file.
 How to
 
 ```python
-from copy import copy
-from torch.utils.data.dataset import random_split
-from torchvision import transforms
-from datasets import GTSRB_Seq, FlattenSequences
+gtsrb_path = './GTSRB/Final_Training/Images/'
+bam_path = './BAM/'
+convention_path = './convention_conversion.csv'
 
-# filter any sizes you want
-size_filter = lambda x: x > (32, 32)
-dataset_path = './GTSRB/Final_Training/Images'
-
-dataset = GTSRB_Seq(dataset_path, size_filter=size_filter)
-test_size = int(0.2 * len(dataset))
-train_size = len(dataset) - test_size
-train_dataset, test_dataset = random_split(dataset, [train_size, test_size])
-
-# in order to apply different transformations to dataset
-train_dataset.dataset = copy(dataset)
-
-train_dataset.dataset.transform = transforms.Compose([
-    transforms.Resize(64),
-    transforms.RandomAffine(10, [0.1, 0.1], [0.9, 1.1], 0.05),
-    transforms.RandomCrop(64, padding=4),
+train_transform = transforms.Compose([
+    transforms.Resize(32),
+    transforms.RandomCrop(32, padding=4),
     transforms.ToTensor(),
     transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
 ])
 
-test_dataset.dataset.transform = transforms.Compose([
-    transforms.Resize(64),
-    transforms.CenterCrop(64),
+test_transform = transforms.Compose([
+    transforms.Resize(32),
+    transforms.CenterCrop(32),
     transforms.ToTensor(),
     transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
 ])
 
-train_dataset = FlattenSequences(train_dataset)
-test_dataset = FlattenSequences(test_dataset)
+# create train/test for GTSRB
+gtsrb_train = datasets.GTSRB(gtsrb_path, train_transform, train=True, size_filter=lambda x: x > (32, 32))
+gtsrb_test = datasets.GTSRB(gtsrb_path, test_transform, train=False, size_filter=lambda x: x > (32, 32))
+
+# create train/test for BAM
+bam_train = datasets.BAM(bam_path, conversion_table_path=convention_path, train=True, transform=train_transform)
+bam_test = datasets.BAM(bam_path, conversion_table_path=convention_path, train=False, transform=test_transform)
+
+# combination
+train_gtsrb_bam = torch.utils.data.dataset.ConcatDataset([gtsrb_train, bam_train])
+test_gtsrb_bam = torch.utils.data.dataset.ConcatDataset([gtsrb_test, bam_test])
 ```

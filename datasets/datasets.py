@@ -254,7 +254,8 @@ class BAM(Dataset):
         classes = annotations.groupby('coordinates_string')['signtype'].apply(list)
         damaged = annotations.groupby('coordinates_string')['damaged'].apply(list)
 
-        sequences = [[f'{bam_root}/images/{path}' for path in seq] for seq in sequences]
+        pattern = os.path.join(bam_root, 'images', '{}')
+        sequences = [[pattern.format(path) for path in seq] for seq in sequences]
 
         combined = [
             [(sequences[i][j], classes[i][j], damaged[i][j]) for j in range(len(sequences[i]))] for
@@ -266,11 +267,11 @@ class BAM(Dataset):
         """Return image, image label and damaged label."""
         print(self.used_sequences[0])
         image, sign, damage = self.flattened_used_sequences[index]
-        images = Image.open(image)
+        image = Image.open(image)
         if self.transform:
-            images = [self.tranform(img) for img in images]
+            image = self.transform(image)
 
-        return images, sign, damage
+        return image, sign, damage
 
     def __len__(self):
         return len(self.used_sequences)
