@@ -151,7 +151,7 @@ class BAM(Dataset):
     def __init__(self, bam_root, damage_types=['graffity'], fillna_class=False, use_stacked=False,
                  use_unknown_types=True, min_area=25 ** 2,
                  train=False, test_split=0.2, transform=None,
-                 conversion_table_path='../../datasets/convention_conversion.csv'):
+                 conversion_table_path='../../datasets/convention_conversion.csv', seed=42):
         super(BAM, self).__init__()
 
         self.transform = transform
@@ -163,7 +163,7 @@ class BAM(Dataset):
 
         self.all_sequences = self.bam_sequences
 
-        random.seed(42)
+        random.seed(seed)
         random.shuffle(self.all_sequences)
 
         if train:
