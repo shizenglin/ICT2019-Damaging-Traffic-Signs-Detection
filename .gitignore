@@ -5,3 +5,8 @@ __pycache__
 datasets/NL/
 datasets/BAM_data/
 .idea/
+BAM_data/images/
+GTSRB_data
+images
+*/images
+
