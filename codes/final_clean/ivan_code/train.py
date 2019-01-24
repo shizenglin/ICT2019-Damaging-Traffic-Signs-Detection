@@ -138,11 +138,11 @@ if args.test_dataset == 'nl':
                        size_filter=_size_filter, transform=bam_test_transform, train=False)
 
 if args.test_dataset == 'nl_nl':
-    train_2 = BAM(args.bam_dir, args.bam_conversion,
-                  size_filter=_size_filter, transform=bam_test_transform, train=True)
-    train_2 = BAM(args.bam_dir, args.bam_conversion,
-                  size_filter=_size_filter, transform=bam_test_transform, train=False)
-    test_dataset = ConcatDataset([train_1, train_2])
+    test_1 = BAM(args.bam_dir, args.bam_conversion,
+                 size_filter=_size_filter, transform=bam_test_transform, train=True)
+    test_2 = BAM(args.bam_dir, args.bam_conversion,
+                 size_filter=_size_filter, transform=bam_test_transform, train=False)
+    test_dataset = ConcatDataset([test_1, test_2])
 
 print('Test Dataset', test_dataset)
 print(len(test_dataset))
