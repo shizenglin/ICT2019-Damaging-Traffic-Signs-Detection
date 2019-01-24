@@ -265,7 +265,6 @@ class BAM(Dataset):
 
     def __getitem__(self, index):
         """Return image, image label and damaged label."""
-        print(self.used_sequences[0])
         image, sign, damage = self.flattened_used_sequences[index]
         image = Image.open(image)
         if self.transform:
