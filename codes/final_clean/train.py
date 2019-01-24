@@ -22,9 +22,12 @@ from util.cutout import Cutout
 from model.resnet import ResNet18
 from model.wide_resnet import WideResNet
 import torch.utils.data as data
-from focalloss import *
+from utils.focalloss import *
 
-from gtsrb_dataloader import GTSRB, BAM
+import os
+print(os.getcwd())
+
+from datasets.datasets import GTSRB, BAM
 
 from imblearn.metrics import classification_report_imbalanced
 #from imblearn.metrics import specificity_score
@@ -72,9 +75,12 @@ test_id = args.dataset + '_' + args.model
 
 print(args)
 
-gtsrb_path = './datasets/GTSRB/Final_Training/Images/'
+gtsrb_path = './datasets/GTSRB_data/Final_Training/Images/'
 bam_path = './datasets/BAM_data/'
 convention_path = './datasets/BAM_data/convention_conversion.csv'
+
+
+os.listdir(gtsrb_path)
 
 train_transform = transforms.Compose([
     transforms.Resize(32),
@@ -95,11 +101,11 @@ test_transform = transforms.Compose([
 ])
 
 # create train/test for GTSRB
-train_dataset = GTSRB(gtsrb_path, train_transform, train=True, test_size=0.0)#, size_filter=lambda x: x > (24, 24
-#gtsrb_test = GTSRB(gtsrb_path, train_transform, train=False, size_filter=lambda x: x > (24, 24))
+train_dataset = GTSRB(gtsrb_path, train_transform, train=True, test_size=0.2)
+test_dataset = GTSRB(gtsrb_path, train_transform, train=False, test_size=0.2)
 
 # create train/test for BAM
-test_dataset = BAM(bam_path, conversion_table_path=convention_path, train=True, test_split=0.0, transform=test_transform)
+# test_dataset = BAM(bam_path, conversion_table_path=convention_path, train=True, test_split=0.0, transform=test_transform)
 #bam_test = BAM(bam_path, conversion_table_path=convention_path, train=False, transform=test_transform)
 
 # combination
@@ -119,6 +125,8 @@ test_loader = data.DataLoader(dataset=test_dataset,
                               pin_memory=True,
                               num_workers=2)
 
+assert len(train_loader) > 0
+
 num_classes = 2
 if args.model == 'resnet18':
     cnn = ResNet18(num_classes=num_classes)
@@ -126,7 +134,9 @@ elif args.model == 'wideresnet':
     cnn = WideResNet(depth=28, num_classes=num_classes, widen_factor=10,
                          dropRate=0.3)
 
-cnn = cnn.cuda()
+if torch.cuda.is_available():
+    cnn = cnn.cuda()
+
 criterion = FocalLoss()#nn.CrossEntropyLoss().cuda()
 cnn_optimizer = torch.optim.SGD(cnn.parameters(), lr=args.learning_rate,
                                 momentum=0.9, nesterov=True, weight_decay=5e-4)
@@ -151,8 +161,16 @@ def test(loader):
     for images, _, labels in loader:
         #images = images[0]
         #labels = labels[0]
-        images = Variable(images, volatile=True).cuda()
-        labels = Variable(labels, volatile=True).cuda()
+        images = Variable(images, volatile=True)
+        labels = Variable(labels, volatile=True)
+
+        if torch.cuda.is_available():
+            images = images.cuda()
+            labels = labels.cuda()
+
+        print(images.device)
+        print(labels.device)
+        print(cnn.device)
 
         pred = cnn(images)
         pred_soft_list.append(pred.data)
@@ -186,13 +204,18 @@ for epoch in range(args.epochs):
     correct = 0.
     total = 0.
 
-    progress_bar = tqdm(train_loader)
-    for i, (images, _, labels) in enumerate(progress_bar):
-        progress_bar.set_description('Epoch ' + str(epoch))
+    # progress_bar = tqdm(train_loader)
+    for i, (images, _, labels) in enumerate(train_loader):
+        # progress_bar.set_description('Epoch ' + str(epoch))
         #images = images[0]
         #labels = labels[0]
-        images = Variable(images).cuda(async=True)
-        labels = Variable(labels).cuda(async=True)
+
+        images = Variable(images)
+        labels = Variable(labels)
+
+        if torch.cuda.is_available():
+            images = images.cuda(async=True)
+            labels = labels.cuda(async=True)
 
         cnn.zero_grad()
         pred = cnn(images)
@@ -209,9 +232,9 @@ for epoch in range(args.epochs):
         correct += (pred == labels.data).sum()
         accuracy = float(correct) / float(total)
 
-        progress_bar.set_postfix(
-            xentropy='%.3f' % (xentropy_loss_avg / (i + 1)),
-            acc='%.3f' % accuracy)
+        # progress_bar.set_postfix(
+        #     xentropy='%.3f' % (xentropy_loss_avg / (i + 1)),
+        #     acc='%.3f' % accuracy)
 
     if epoch%10==0: 
         test_report_imbal,test_map = test(test_loader)
