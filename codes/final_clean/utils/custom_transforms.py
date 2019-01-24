@@ -21,5 +21,11 @@ class ResizeWithPad(object):
         return self._resize(img)
 
 
-def ResizeNoAspectRatio(size):
-    return transforms.Resize((size, size))
+def Resize(size, mode='pad'):
+    if mode == 'crop':
+        return transforms.Resize(size)
+    if mode == 'pad':
+        return ResizeWithPad(size)
+    if mode == 'fill':
+        return transforms.Resize((size, size))
+    raise NotImplementedError

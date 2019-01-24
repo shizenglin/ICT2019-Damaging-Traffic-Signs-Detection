@@ -78,6 +78,7 @@ class BAM(Dataset):
     def __init__(self, bam_root, conversion_table_path, damage_types=['graffity'],
                  fillna_class=False, use_stacked=False,
                  use_unknown_types=True,
+                 size_filter=None
                  train=False, test_split=0.2, transform=None,
                  kfold_splits=None, kfold_flag=1):
         super(BAM, self).__init__()
@@ -119,6 +120,11 @@ class BAM(Dataset):
 
         self.flattened_used_sequences = [image for sequence in self.used_sequences for image in
                                          sequence]
+
+        if size_filter:
+            filtered = filter(lambda x: size_filter(Image.open(x[0]).size),
+                              self.flattened_used_sequences)
+            self.flattened_used_sequences = list(filtered)
 
     def _get_bam_sequences(self, bam_root, use_stacked, use_unknown_types, damage_types,
                            fillna_class):
@@ -181,4 +187,4 @@ class BAM(Dataset):
         return image, sign, damage
 
     def __len__(self):
-        return len(self.used_sequences)
+        return len(self.flattened_used_sequences)
