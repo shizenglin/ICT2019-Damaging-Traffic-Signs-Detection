@@ -28,6 +28,9 @@ def test_nll(model, loader, device=torch.device('cuda'), weights=None):
     false_p = 0
     pos = 0
 
+    pred_total = np.empty((0,1))
+    true_total = np.empty((0,1))
+
     with torch.no_grad():
         for data, _, target in loader:
             data, target = data.to(device), target.to(device)
@@ -40,6 +43,12 @@ def test_nll(model, loader, device=torch.device('cuda'), weights=None):
             # calculate TP
             pred = pred.view(-1,).detach().cpu().numpy()
             true = target.view(-1,).detach().cpu().numpy()
+
+            pred_total = np.concatenate((pred_total, pred))
+            true_total = np.concatenate((true_total, true))
+
+
+
             pos += true.sum()
             true_p += np.logical_and(pred == 1, true == 1).sum()
             false_p += np.logical_and(pred == 1, true == 0).sum()
@@ -48,8 +57,10 @@ def test_nll(model, loader, device=torch.device('cuda'), weights=None):
     loss /= num_objects
     accuracy /= num_objects
 
+    MAP = sklearn.metrics.average_precision_score(true_total, pred_total)
+
     if pos != 0:
         true_p /= pos
         false_p /= pos
 
-    return loss, accuracy, true_p, false_p
+    return loss, accuracy, true_p, false_p, MAP

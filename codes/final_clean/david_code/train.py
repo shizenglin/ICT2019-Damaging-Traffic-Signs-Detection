@@ -163,15 +163,19 @@ test_loader = DataLoader(test_dataset, args.batch_size, False, pin_memory=True, 
 model = models.resnet18(2, pretrained=True).to(device)
 
 # Freeze first two layers.
-for layer in model.children()[:2]:
+num_freeze_layers = 2
+for i, layer in enumerate(model.children()):
     for parameter in layer.parameters():
         parameter.requires_grad = False
+
+    if i == num_freeze_layers:
+        break
 
 
 
 if args.restore_model:
     state_dict = torch.load(args.restore_model)
-    model.loade_state_dict(state_dict)
+    model.load_state_dict(state_dict)
     print('model is restored from {}'.format(args.restore_model))
 
 
@@ -207,7 +211,7 @@ print('Training\n' + '-'*30)
 for epoch in range(args.epochs):
     lr_scheduler.step()
     train_utils.train_nll(model, optimizer, train_loader, device, weights=damage_weights)
-    damage_nll, damage_acc, true_p, false_p = train_utils.test_nll(
+    damage_nll, damage_acc, true_p, false_p, MAP = train_utils.test_nll(
         model, test_loader, device, weights=damage_weights)
     summary.add_scalar('test/damage_acc', damage_acc, global_step=epoch)
     summary.add_scalar('test/damage_nll', damage_nll, global_step=epoch)
@@ -215,9 +219,10 @@ for epoch in range(args.epochs):
     summary.add_scalar('test/true_p_recall', true_p, global_step=epoch)
     summary.add_scalar('test/false_p', false_p, global_step=epoch)
     summary.add_scalar('test/precision', true_p / (true_p + false_p + 1e-5), global_step=epoch)
+    summary.add_scalar('test/MAP', MAP, global_step=epoch)
 
-    print('# {:3d}/{:3d}| Acc: {:3.1f}%, True_p: {:3.1f}%'.format(
-        epoch + 1, args.epochs, 100 * damage_acc, 100 * true_p
+    print('# {:3d}/{:3d}| MAP: {:3.1f}%, True_p: {:3.1f}%'.format(
+        epoch + 1, args.epochs, 100 * MAP, 100 * true_p
     ), flush=True)
 
 print('-'*30)
