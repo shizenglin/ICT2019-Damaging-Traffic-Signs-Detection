@@ -10,7 +10,6 @@ from torch.utils.data.dataset import Dataset
 from sklearn.model_selection import train_test_split, KFold
 
 
-
 def _join_csv_into_dict_by_paths(paths):
     damage_dict = {}
 
@@ -167,7 +166,7 @@ class FlattenSequences(Dataset):
 class BAM(Dataset):
 
     def __init__(self, bam_root, damage_types=['graffity'], fillna_class=False, use_stacked=False,
-                 use_unknown_types=True, min_area=25 ** 2,
+                 use_unknown_types=True, size_filter=None,
                  train=False, test_split=0.2, transform=None,
                  conversion_table_path='../../datasets/convention_conversion.csv',
                  kfold_splits=None, kfold_flag=1):
@@ -180,10 +179,10 @@ class BAM(Dataset):
             int).to_dict()
 
         self.bam_sequences = self._get_bam_sequences(bam_root, use_stacked, use_unknown_types,
-                                                     min_area, damage_types, fillna_class)
+                                                     damage_types, fillna_class)
 
         self.all_sequences = self.bam_sequences
-    
+
         random.seed(42)
         random.shuffle(self.all_sequences)
 
@@ -208,13 +207,14 @@ class BAM(Dataset):
                 self.used_sequences = self.all_sequences[:int(self.test_split * len(
                     self.all_sequences))]
 
-        self.flattened_used_sequences = [image for sequence in self.used_sequences for image
-                                                 in sequence]
+        self.flattened_used_sequences = [img for seq in self.used_sequences for img in seq]
 
+        if size_filter:
+            filtered = filter(lambda x: size_filter(Image.open(x[0]).size),
+                              self.flattened_used_sequences)
+            self.flattened_used_sequences = list(filtered)
 
-
-    def _get_bam_sequences(self, bam_root, use_stacked, use_unknown_types, min_area, damage_types,
-                           fillna_class):
+    def _get_bam_sequences(self, bam_root, use_stacked, use_unknown_types, damage_types, fillna_class):
 
         annotations = pd.read_csv(f'{bam_root}/annotations.csv')
 
@@ -238,7 +238,7 @@ class BAM(Dataset):
         if not use_stacked:
             annotations = annotations[annotations['stacked'] == 0]
 
-        annotations = annotations[annotations['area'] > min_area]
+        # annotations = annotations[annotations['area'] > min_area]
 
         #         sequences = annotations.groupby(['latitude', 'longitude', 'signtype'])['filename'].apply(list).tolist()
         #         classes = annotations.groupby(['latitude', 'longitude', 'signtype'])['signtype'].apply(list).tolist()
@@ -274,4 +274,4 @@ class BAM(Dataset):
         return image, sign, damage
 
     def __len__(self):
-        return len(self.used_sequences)
+        return len(self.flattened_used_sequences)
