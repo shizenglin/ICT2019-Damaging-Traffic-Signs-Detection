@@ -9,6 +9,9 @@ import numpy as np
 from torch.utils.data.dataset import Dataset
 from sklearn.model_selection import train_test_split, KFold
 
+from torchvision.transforms import ToTensor
+import torch
+
 # BAM MEANS: [0.21605369448661804, 0.2149607390165329, 0.2207345962524414]
 # BAM STDS: [0.040255509316921234, 0.04073305428028107, 0.04137737676501274])
 
@@ -21,6 +24,7 @@ BAM_STDS = [0.040255509316921234, 0.04073305428028107, 0.04137737676501274]
 GSTRB_MEANS = [0.3358314037322998, 0.3088115453720093, 0.3186173439025879]
 GTSRB_STDS = [0.049029722809791565, 0.051791854202747345, 0.05591278523206711]
 
+to_tensor = ToTensor()
 
 def _get_mean_std_dataset(dataset):
     all_tensors = [to_tensor(line[0]) for line in dataset]
