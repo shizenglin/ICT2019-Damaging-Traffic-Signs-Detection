@@ -22,15 +22,12 @@ from util.cutout import Cutout
 from model.resnet import ResNet18
 from model.wide_resnet import WideResNet
 import torch.utils.data as data
-from utils.focalloss import *
+from focalloss import *
 
-import os
-print(os.getcwd())
+from gtsrb_dataloader import GTSRB, BAM
 
-from datasets.datasets import GTSRB, BAM
-
-from imblearn.metrics import classification_report_imbalanced
-#from imblearn.metrics import specificity_score
+#from imblearn.metrics import classification_report_imbalanced
+from sklearn.metrics.classification import precision_recall_fscore_support
 from sklearn.metrics import average_precision_score
 
 
@@ -38,7 +35,7 @@ model_options = ['resnet18', 'wideresnet']
 dataset_options = ['cifar10','gtsrb']
 
 parser = argparse.ArgumentParser(description='CNN')
-parser.add_argument('--dataset', '-d', default='gtsrb',
+parser.add_argument('--logname', '-d', default='bam-train-test-64',
                     choices=dataset_options)
 parser.add_argument('--model', '-a', default='resnet18',
                     choices=model_options)
@@ -62,6 +59,8 @@ parser.add_argument('--seed', type=int, default=0,
                     help='random seed (default: 1)')
 parser.add_argument('--subset', '-s', type=int, default=None,
                     help='use subset of data')
+parser.add_argument('--subfolder', type=int, default=2,
+                    help='use subfolder of data')
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -71,20 +70,17 @@ torch.manual_seed(args.seed)
 if args.cuda:
     torch.cuda.manual_seed(args.seed)
 
-test_id = args.dataset + '_' + args.model
+test_id = args.logname + '_' + args.model+'_'+str(args.subfolder)
 
 print(args)
 
-gtsrb_path = './datasets/GTSRB_data/Final_Training/Images/'
-bam_path = './datasets/BAM_data/'
-convention_path = './datasets/BAM_data/convention_conversion.csv'
-
-
-os.listdir(gtsrb_path)
+gtsrb_path = './data/GTSRB/Final_Training/Images/'
+bam_path = './data/BAM_data/'
+convention_path = './data/BAM_data/convention_conversion.csv'
 
 train_transform = transforms.Compose([
-    transforms.Resize(32),
-    transforms.RandomCrop(32, padding=4),
+    transforms.Resize(64),
+    transforms.RandomCrop(64, padding=4),
     transforms.ToTensor(),
     transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
 ])
@@ -94,19 +90,19 @@ if args.cutout:
 
 
 test_transform = transforms.Compose([
-    transforms.Resize(32),
-    transforms.CenterCrop(32),
+    transforms.Resize(64),
+    transforms.CenterCrop(64),
     transforms.ToTensor(),
     transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
 ])
 
 # create train/test for GTSRB
-train_dataset = GTSRB(gtsrb_path, train_transform, train=True, test_size=0.2)
-test_dataset = GTSRB(gtsrb_path, train_transform, train=False, test_size=0.2)
+#train_dataset = GTSRB(gtsrb_path, train_transform, train=True, test_size=0.0)#, size_filter=lambda x: x > (24, 24
+#gtsrb_test = GTSRB(gtsrb_path, train_transform, train=False, size_filter=lambda x: x > (24, 24))
 
 # create train/test for BAM
-# test_dataset = BAM(bam_path, conversion_table_path=convention_path, train=True, test_split=0.0, transform=test_transform)
-#bam_test = BAM(bam_path, conversion_table_path=convention_path, train=False, transform=test_transform)
+train_dataset = BAM(bam_path, conversion_table_path=convention_path, train=True, transform=train_transform, kfold_flag=args.subfolder)
+test_dataset = BAM(bam_path, conversion_table_path=convention_path, train=False, transform=test_transform, kfold_flag=args.subfolder)
 
 # combination
 #train_dataset = torch.utils.data.dataset.ConcatDataset([gtsrb_train, gtsrb_test])
@@ -117,15 +113,13 @@ train_loader = data.DataLoader(dataset=train_dataset,
                                batch_size=args.batch_size,
                                shuffle=True,
                                pin_memory=True,
-                               num_workers=2)
+                               num_workers=4)
 
 test_loader = data.DataLoader(dataset=test_dataset,
-                              batch_size=args.batch_size,
+                              batch_size=1,
                               shuffle=False,
                               pin_memory=True,
-                              num_workers=2)
-
-assert len(train_loader) > 0
+                              num_workers=4)
 
 num_classes = 2
 if args.model == 'resnet18':
@@ -134,21 +128,15 @@ elif args.model == 'wideresnet':
     cnn = WideResNet(depth=28, num_classes=num_classes, widen_factor=10,
                          dropRate=0.3)
 
-if torch.cuda.is_available():
-    cnn = cnn.cuda()
-
+cnn = cnn.cuda()
 criterion = FocalLoss()#nn.CrossEntropyLoss().cuda()
 cnn_optimizer = torch.optim.SGD(cnn.parameters(), lr=args.learning_rate,
                                 momentum=0.9, nesterov=True, weight_decay=5e-4)
 
-if args.dataset == 'gtsrb':
-    scheduler = MultiStepLR(cnn_optimizer, milestones=[80, 120], gamma=0.1)
-else:
-    scheduler = MultiStepLR(cnn_optimizer, milestones=[60, 120, 160], gamma=0.2)
+scheduler = MultiStepLR(cnn_optimizer, milestones=[80, 120], gamma=0.1)
 
-filename = 'logs/' + test_id + '.csv'
-csv_logger = CSVLogger(args=args, fieldnames=['epoch', 'train_acc', 'test_acc'], filename=filename)
-
+filename = 'logs/' + test_id + '.txt'
+log_file = open(filename, "w")
 
 def test(loader):
     cnn.eval()    # Change model to 'eval' mode (BN uses moving mean/var).
@@ -161,16 +149,8 @@ def test(loader):
     for images, _, labels in loader:
         #images = images[0]
         #labels = labels[0]
-        images = Variable(images, volatile=True)
-        labels = Variable(labels, volatile=True)
-
-        if torch.cuda.is_available():
-            images = images.cuda()
-            labels = labels.cuda()
-
-        print(images.device)
-        print(labels.device)
-        print(cnn.device)
+        images = Variable(images, volatile=True).cuda()
+        labels = Variable(labels, volatile=True).cuda()
 
         pred = cnn(images)
         pred_soft_list.append(pred.data)
@@ -188,34 +168,31 @@ def test(loader):
     pred_soft_list = torch.cat(pred_soft_list,0)
     label_soft_list = torch.eye(2)[label_list]#(len(label_list.cpu()),2).scatter_(1,label_list.cpu(),1)
     
-    #val_sensitivity = sensitivity_score(label_list.cpu(), pred_list.cpu())
-    #val_specificity = specificity_score(label_list.cpu(), pred_list.cpu())
-    val_map = average_precision_score(label_soft_list.cpu(), pred_soft_list.cpu())
-    target_names = ['undamaged', 'damaged']
-    val_classification_report = classification_report_imbalanced(label_list.cpu(), pred_list.cpu(),target_names=target_names)
+    test_precision, test_recall, _, _ = precision_recall_fscore_support(label_list.cpu(), pred_list.cpu())
+    test_map = average_precision_score(label_soft_list.cpu(), pred_soft_list.cpu())
+    #target_names = ['undamaged', 'damaged']
+    #val_classification_report = classification_report_imbalanced(label_list.cpu(), pred_list.cpu(),target_names=target_names)
     
     cnn.train()
-    return val_classification_report,val_map
+    return test_precision, test_recall, test_map
 
 
+
+best_map = 0.0
+best_epoch = 0
 for epoch in range(args.epochs):
 
     xentropy_loss_avg = 0.
     correct = 0.
     total = 0.
 
-    # progress_bar = tqdm(train_loader)
-    for i, (images, _, labels) in enumerate(train_loader):
-        # progress_bar.set_description('Epoch ' + str(epoch))
+    progress_bar = tqdm(train_loader)
+    for i, (images, _, labels) in enumerate(progress_bar):
+        progress_bar.set_description('Epoch ' + str(epoch))
         #images = images[0]
         #labels = labels[0]
-
-        images = Variable(images)
-        labels = Variable(labels)
-
-        if torch.cuda.is_available():
-            images = images.cuda(async=True)
-            labels = labels.cuda(async=True)
+        images = Variable(images).cuda(async=True)
+        labels = Variable(labels).cuda(async=True)
 
         cnn.zero_grad()
         pred = cnn(images)
@@ -232,19 +209,37 @@ for epoch in range(args.epochs):
         correct += (pred == labels.data).sum()
         accuracy = float(correct) / float(total)
 
-        # progress_bar.set_postfix(
-        #     xentropy='%.3f' % (xentropy_loss_avg / (i + 1)),
-        #     acc='%.3f' % accuracy)
+        progress_bar.set_postfix(
+            xentropy='%.3f' % (xentropy_loss_avg / (i + 1)),
+            acc='%.3f' % accuracy)
 
     if epoch%10==0: 
-        test_report_imbal,test_map = test(test_loader)
-        tqdm.write(test_report_imbal+'test_map: %.3f\n'%test_map)
-        #tqdm.write('test_acc: %.3f\n test_recall: %.3f\n test_roc_auc:%.3f\n test_sensi:%.3f\n test_speci:%.3f\n test_geo:%.3f\n test_bal:%.3f\n test_report:%.3f\n' % (test_acc, test_recall,test_roc_auc,test_sensi,test_speci,test_geo,test_bal,test_report))
+        test_precision, test_recall, test_map = test(test_loader)
+        if test_map>best_map:
+            best_map = test_map
+            best_epoch = epoch
+        torch.save(cnn.state_dict(), 'checkpoints/' + test_id + '_' +str(epoch)+ '.pt')
+        tqdm.write('precision: %.3f/%.3f, recall: %.3f/%.3f, map:%.3f, best_map:%.3f' % (test_precision[0],test_precision[1],test_recall[0],test_recall[1],test_map,best_map))
+        log_file.write('precision: %.3f/%.3f, recall: %.3f/%.3f, map:%.3f, best_map:%.3f\n' % (test_precision[0],test_precision[1],test_recall[0],test_recall[1],test_map,best_map))
 
     scheduler.step(epoch)
 
-    row = {'epoch': str(epoch), 'train_acc': str(accuracy), 'test_acc': str(test_report_imbal)}
-    csv_logger.writerow(row)
+log_file.close()
+#torch.save(cnn.state_dict(), 'checkpoints/' + test_id + '.pt')
+filename = 'logs/' + test_id + '_output.csv'
+csv_logger = CSVLogger(args=args, fieldnames=['imgname', 'conscore', 'label'], filename=filename) 
+best_mode_path = 'checkpoints/' + test_id + '_' +str(best_epoch)+ '.pt'
 
-torch.save(cnn.state_dict(), 'checkpoints/' + test_id + '.pt')
+cnn = ResNet18(num_classes=num_classes)
+cnn.load_state_dict(torch.load(best_mode_path))
+cnn = cnn.cuda()
+cnn.eval()
+
+for images, image_path, labels in test_loader:
+    images = Variable(images, volatile=True).cuda()
+    labels = Variable(labels, volatile=True).cuda()
+
+    pred = cnn(images)
+    row = {'imgname': image_path[0], 'conscore': str(pred.data[0,1].item()), 'label': str(labels.data[0].item())} 
+    csv_logger.writerow(row)   
 csv_logger.close()
