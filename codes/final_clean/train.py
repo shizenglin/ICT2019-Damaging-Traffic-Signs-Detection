@@ -32,7 +32,7 @@ from sklearn.metrics import average_precision_score
 
 import utils.custom_transforms
 
-from datasets.datasets import
+from datasets.datasets import BAM_MEANS, BAM_STDS, GTSRB_MEANS, GTSRB_STDS
 
 
 model_options = ['resnet18', 'wideresnet']

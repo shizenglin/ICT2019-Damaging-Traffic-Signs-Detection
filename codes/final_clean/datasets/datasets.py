@@ -21,7 +21,7 @@ import torch
 BAM_MEANS = [0.21605369448661804, 0.2149607390165329, 0.2207345962524414]
 BAM_STDS = [0.040255509316921234, 0.04073305428028107, 0.04137737676501274]
 
-GSTRB_MEANS = [0.3358314037322998, 0.3088115453720093, 0.3186173439025879]
+GTSRB_MEANS = [0.3358314037322998, 0.3088115453720093, 0.3186173439025879]
 GTSRB_STDS = [0.049029722809791565, 0.051791854202747345, 0.05591278523206711]
 
 to_tensor = ToTensor()
@@ -165,7 +165,7 @@ class BAM(Dataset):
     def _get_bam_sequences(self, bam_root, use_stacked, use_unknown_types, damage_types,
                            fillna_class):
 
-        annotations = pd.read_csv(f'{bam_root}/annotations.csv')
+        annotations = pd.read_csv('%s/annotations.csv' % bam_root)
 
         if fillna_class:
             annotations['class'] = annotations['class'].fillna('undamaged')
