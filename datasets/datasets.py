@@ -168,14 +168,21 @@ class BAM(Dataset):
 
         if train:
             self.used_sequences = self.all_sequences[int(test_split * len(self.all_sequences)):]
-
+            self.flattened_used_sequences = [image for sequence in self.used_sequences for image
+                                             in sequence]
         else:
             self.used_sequences = self.all_sequences[:int(test_split * len(self.all_sequences))]
+            self.flattened_used_sequences = [image for sequence in self.used_sequences for image
+                                             in sequence]
+
+
 
     def _get_bam_sequences(self, bam_root, use_stacked, use_unknown_types, min_area, damage_types,
                            fillna_class):
 
         annotations = pd.read_csv(f'{bam_root}/annotations.csv')
+
+
 
         if fillna_class:
             annotations['class'] = annotations['class'].fillna('undamaged')
@@ -224,12 +231,13 @@ class BAM(Dataset):
     def __getitem__(self, index):
 
         """Return image, image label and damaged label."""
-
-        seq = self.used_sequences[index]
-        images = [Image.open(s[0]) for s in seq]
+        print(self.used_sequences[0])
+        image, sign, damage = self.flattened_used_sequences[index]
+        images = Image.open(image)
         if self.transform:
             images = [self.tranform(img) for img in images]
-        return images, [s[1] for s in seq], [s[2] for s in seq]
+
+        return images, sign, damage
 
     def __len__(self):
         return len(self.used_sequences)
