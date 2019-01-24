@@ -9,6 +9,28 @@ import numpy as np
 from torch.utils.data.dataset import Dataset
 from sklearn.model_selection import train_test_split, KFold
 
+# BAM MEANS: [0.21605369448661804, 0.2149607390165329, 0.2207345962524414]
+# BAM STDS: [0.040255509316921234, 0.04073305428028107, 0.04137737676501274])
+
+# GSTRB MEANS: [0.3358314037322998, 0.3088115453720093, 0.3186173439025879]
+# GTSRB_STDS: [0.049029722809791565, 0.051791854202747345, 0.05591278523206711])
+
+BAM_MEANS = [0.21605369448661804, 0.2149607390165329, 0.2207345962524414]
+BAM_STDS = [0.040255509316921234, 0.04073305428028107, 0.04137737676501274]
+
+GSTRB_MEANS = [0.3358314037322998, 0.3088115453720093, 0.3186173439025879]
+GTSRB_STDS = [0.049029722809791565, 0.051791854202747345, 0.05591278523206711]
+
+
+def _get_mean_std_dataset(dataset):
+    all_tensors = [to_tensor(line[0]) for line in dataset]
+    all_means = torch.stack([torch.mean(t, dim=(-1, -2)) for t in all_tensors])
+    means = [v.item() for v in all_means.mean(dim=0)]
+
+    all_stds = torch.stack([t.std(-1).std(-1) for t in all_tensors])
+    stds = [v.item() for v in all_stds.mean(dim=0)]
+
+    return means, stds
 
 def _join_csv_into_dict_by_paths(paths):
     damage_dict = {}
@@ -101,12 +123,22 @@ class BAM(Dataset):
             kf = KFold(n_splits=kfold_splits)
 
             split = list(kf.split(self.all_sequences))
+            train_folds = list(range(kfold_splits))
+            test_fold = kfold_flag
 
             if self.train:
-                self.used_sequences = [self.all_sequences[i] for i in split[kfold_flag][1]]
+
+                train_indices = []
+
+                for fold in train_folds:
+                    train_indices += list(split[fold][0])
+
+                self.used_sequences = [self.all_sequences[i] for i in train_indices]
 
             else:
-                self.used_sequences = [self.all_sequences[i] for i in split[kfold_flag][0]]
+                test_indices = split[test_fold][1]
+
+                self.used_sequences = [self.all_sequences[i] for i in test_indices]
 
         else:
 
