@@ -30,9 +30,14 @@ from imblearn.metrics import classification_report_imbalanced
 #from imblearn.metrics import specificity_score
 from sklearn.metrics import average_precision_score
 
+import utils.custom_transforms
+
+from datasets.datasets import
+
 
 model_options = ['resnet18', 'wideresnet']
 dataset_options = ['cifar10','gtsrb']
+padding_options = ['pad', 'fill']
 
 parser = argparse.ArgumentParser(description='CNN')
 parser.add_argument('--dataset', '-d', default='gtsrb',
@@ -59,6 +64,8 @@ parser.add_argument('--seed', type=int, default=0,
                     help='random seed (default: 1)')
 parser.add_argument('--subset', '-s', type=int, default=None,
                     help='use subset of data')
+parser.add_argument('--im_size', type=int, default=32, help='image resize size')
+parser.add_argument('--pad', '-p', default='pad', choices=padding_options)
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -76,11 +83,18 @@ gtsrb_path = './datasets/GTSRB/Final_Training/Images/'
 bam_path = './datasets/BAM_data/'
 convention_path = './datasets/BAM_data/convention_conversion.csv'
 
+if args.dataset == 'gtsrb':
+    dat_trn_mean = GTSRB_MEANS
+    dat_trn_std = GTSRB_STDS
+else:
+    dat_trn_mean = BAM_MEANS
+    dat_trn_std = BAM_STDS
+
 train_transform = transforms.Compose([
-    transforms.Resize(32),
-    transforms.RandomCrop(32, padding=4),
+    utils.custom_transforms.Resize(args.im_size, args.pad),
+    transforms.RandomCrop(args.im_size, padding=4),
     transforms.ToTensor(),
-    transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+    transforms.Normalize(dat_trn_mean, dat_trn_std)
 ])
 
 if args.cutout:
@@ -88,10 +102,10 @@ if args.cutout:
 
 
 test_transform = transforms.Compose([
-    transforms.Resize(32),
-    transforms.CenterCrop(32),
+    utils.custom_transforms.Resize(args.im_size, args.pad),
+    transforms.CenterCrop(args.im_size),
     transforms.ToTensor(),
-    transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+    transforms.Normalize(GTSRB_MEANS, GTSRB_STDS)
 ])
 
 # create train/test for GTSRB
