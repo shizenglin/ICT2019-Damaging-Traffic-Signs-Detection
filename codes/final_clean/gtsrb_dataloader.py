@@ -9,32 +9,6 @@ import numpy as np
 from torch.utils.data.dataset import Dataset
 from sklearn.model_selection import train_test_split, KFold
 
-from torchvision.transforms import ToTensor
-import torch
-
-# BAM MEANS: [0.21605369448661804, 0.2149607390165329, 0.2207345962524414]
-# BAM STDS: [0.040255509316921234, 0.04073305428028107, 0.04137737676501274])
-
-# GSTRB MEANS: [0.3358314037322998, 0.3088115453720093, 0.3186173439025879]
-# GTSRB_STDS: [0.049029722809791565, 0.051791854202747345, 0.05591278523206711])
-
-BAM_MEANS = [0.21605369448661804, 0.2149607390165329, 0.2207345962524414]
-BAM_STDS = [0.040255509316921234, 0.04073305428028107, 0.04137737676501274]
-
-GTSRB_MEANS = [0.3358314037322998, 0.3088115453720093, 0.3186173439025879]
-GTSRB_STDS = [0.049029722809791565, 0.051791854202747345, 0.05591278523206711]
-
-to_tensor = ToTensor()
-
-def _get_mean_std_dataset(dataset):
-    all_tensors = [to_tensor(line[0]) for line in dataset]
-    all_means = torch.stack([torch.mean(t, dim=(-1, -2)) for t in all_tensors])
-    means = [v.item() for v in all_means.mean(dim=0)]
-
-    all_stds = torch.stack([t.std(-1).std(-1) for t in all_tensors])
-    stds = [v.item() for v in all_stds.mean(dim=0)]
-
-    return means, stds
 
 def _join_csv_into_dict_by_paths(paths):
     damage_dict = {}
@@ -101,12 +75,12 @@ class GTSRB(Dataset):
 
 class BAM(Dataset):
 
-    def __init__(self, bam_root, conversion_table_path, damage_types=['graffity'],
+    def __init__(self, bam_root, conversion_table_path='./data/BAM_data/convention_conversion.csv', damage_types=['graffity'],
                  fillna_class=False, use_stacked=False,
                  use_unknown_types=True,
                  size_filter=None,
                  train=False, test_split=0.2, transform=None,
-                 kfold_splits=None, kfold_flag=1):
+                 kfold_splits=5, kfold_flag=1):
         super(BAM, self).__init__()
 
         self.transform = transform
@@ -124,35 +98,25 @@ class BAM(Dataset):
         random.shuffle(self.all_sequences)
 
         if kfold_splits:
-            kf = KFold(n_splits=kfold_splits)
+            #kf = KFold(n_splits=kfold_splits)
 
-            split = list(kf.split(self.all_sequences))
-            train_folds = list(range(kfold_splits))
-            test_fold = kfold_flag
-
+            #split = list(kf.split(self.all_sequences))
+            seq_size = len(self.all_sequences)
+            folder_step = int(np.floor(seq_size/kfold_splits)+1)
+            #print seq_size
+            self.used_sequences = self.all_sequences[(kfold_flag-1)*folder_step:kfold_flag*folder_step]
+            all_index = range(0,seq_size)
+            test_index = range((kfold_flag-1)*folder_step,kfold_flag*folder_step)
             if self.train:
-
-                train_indices = []
-
-                for fold in train_folds:
-                    train_indices += list(split[fold][0])
-
-                self.used_sequences = [self.all_sequences[i] for i in train_indices]
-
-            else:
-                test_indices = split[test_fold][1]
-
-                self.used_sequences = [self.all_sequences[i] for i in test_indices]
+                self.used_sequences = [self.all_sequences[x] for x in all_index if x not in test_index]
 
         else:
-
+            self.used_sequences = self.all_sequences[:int(self.test_split * len(
+                self.all_sequences))]
             if train:
                 self.used_sequences = self.all_sequences[int(self.test_split * len(
                     self.all_sequences)):]
 
-            else:
-                self.used_sequences = self.all_sequences[:int(self.test_split * len(
-                    self.all_sequences))]
 
         self.flattened_used_sequences = [image for sequence in self.used_sequences for image in
                                          sequence]
@@ -165,7 +129,7 @@ class BAM(Dataset):
     def _get_bam_sequences(self, bam_root, use_stacked, use_unknown_types, damage_types,
                            fillna_class):
 
-        annotations = pd.read_csv('%s/annotations.csv' % bam_root)
+        annotations = pd.read_csv('%s/annotations.csv'%bam_root)
 
         if fillna_class:
             annotations['class'] = annotations['class'].fillna('undamaged')
@@ -214,6 +178,7 @@ class BAM(Dataset):
 
     def __getitem__(self, index):
         """Return image, image label and damaged label."""
+        #print(self.used_sequences[0])
         image, sign, damage = self.flattened_used_sequences[index]
         image = Image.open(image)
         if self.transform:
