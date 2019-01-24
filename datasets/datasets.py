@@ -7,7 +7,8 @@ import pandas as pd
 import numpy as np
 
 from torch.utils.data.dataset import Dataset
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, KFold
+
 
 
 def _join_csv_into_dict_by_paths(paths):
@@ -168,10 +169,12 @@ class BAM(Dataset):
     def __init__(self, bam_root, damage_types=['graffity'], fillna_class=False, use_stacked=False,
                  use_unknown_types=True, min_area=25 ** 2,
                  train=False, test_split=0.2, transform=None,
-                 conversion_table_path='../../datasets/convention_conversion.csv', seed=42):
+                 conversion_table_path='../../datasets/convention_conversion.csv',
+                 kfold_splits=None, kfold_flag=1):
         super(BAM, self).__init__()
 
         self.transform = transform
+        self.train = train
         self.test_split = test_split
         self.class_names = pd.read_csv(conversion_table_path).set_index('NL')['DL'].dropna().astype(
             int).to_dict()
@@ -180,34 +183,35 @@ class BAM(Dataset):
                                                      min_area, damage_types, fillna_class)
 
         self.all_sequences = self.bam_sequences
-
-        random.seed(seed)
+    
+        random.seed(42)
         random.shuffle(self.all_sequences)
 
-        if train:
-            self.used_sequences = self.all_sequences[int(self.test_split * len(
-                self.all_sequences)):]
-            self.flattened_used_sequences = [image for sequence in self.used_sequences for image
-                                             in sequence]
-        else:
-            self.used_sequences = self.all_sequences[:int(self.test_split * len(
-                self.all_sequences))]
-            self.flattened_used_sequences = [image for sequence in self.used_sequences for image
-                                             in sequence]
+        if kfold_splits:
+            kf = KFold(n_splits=kfold_splits)
 
-    def new_k_fold(self, seed, train):
-        random.shuffle(self.all_sequences)
+            split = list(kf.split(self.all_sequences))
 
-        if train:
-            self.used_sequences = self.all_sequences[int(self.test_split * len(
-                self.all_sequences)):]
-            self.flattened_used_sequences = [image for sequence in self.used_sequences for image
-                                             in sequence]
+            if self.train:
+                self.used_sequences = [self.all_sequences[i] for i in split[kfold_flag][1]]
+
+            else:
+                self.used_sequences = [self.all_sequences[i] for i in split[kfold_flag][0]]
+
         else:
-            self.used_sequences = self.all_sequences[:int(self.test_split * len(
-                self.all_sequences))]
-            self.flattened_used_sequences = [image for sequence in self.used_sequences for image
-                                             in sequence]
+
+            if train:
+                self.used_sequences = self.all_sequences[int(self.test_split * len(
+                    self.all_sequences)):]
+
+            else:
+                self.used_sequences = self.all_sequences[:int(self.test_split * len(
+                    self.all_sequences))]
+
+        self.flattened_used_sequences = [image for sequence in self.used_sequences for image
+                                                 in sequence]
+
+
 
     def _get_bam_sequences(self, bam_root, use_stacked, use_unknown_types, min_area, damage_types,
                            fillna_class):
