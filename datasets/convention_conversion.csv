@@ -1,0 +1,74 @@
+NL,DL,BE,description
+A01,0,C43,Limit 20
+A01,1,C43,Limit 30
+A01,2,C43,Limit 50
+A01,3,C43,Limit 60
+A01,4,C43,Limit 70
+A01,5,C43,Limit 80
+A02,6,C45,End limit 80
+A01,7,C43,Limit 100
+A01,8,C43,Limit 120
+F01,9,C35,No passing
+F03,10,,no passing heavy
+B03,11,B15A,right of way both
+B01,12,B9,priority road
+B06,13,B1,yield
+B07,14,B5,STOP
+C01,15,C3,no vehicles
+C07,16,C23,no trucks
+C02,17,C1,no entry
+J37,18,A51,warning
+J03,19,A1A,dangerous curve left
+J02,20,A1B,dangerous curve right
+J05,21,A1C,double curve left
+J01,22,A13,bumpy road
+J20,23,A15,slippery
+J18,24,A7C,road narrowing right
+J16,25,A31,roadwork
+J32,26,A33,warning traffic lights
+J23,27,,pedestrians
+J21,28,A23,children crossing
+J24,29,A25,cyclists
+J36,30,,snow
+J32,31,,game crossing
+F08,32,,end all speed limits
+D05-R,33,,turn right
+D05-L,34,,turn left
+D04,35,D1a,ahead only
+D06-R,36,,straight or right
+D06-L,37,,straight or left
+D02-RO,38,D1,keep right
+D02-LO,39,,keep left
+D01,40,D5,roundabout
+F02,41,,end no passing
+F04,42,,end no passing heavy
+J17,,A7A,road narrowing both
+J19,,A7B,road narrowing left
+C03,,F19,one way road
+J38,,A14,Speed bump
+J28,,A29,livestock
+J10,,A41,train crossing with fence
+J08,,B17,dangerous intersection
+F05,,B19,one way give way
+C14,,C11,prohibited bicycles
+C21,,C21,Prohibited total weight
+C07,,C23,prohibited trucks
+C18,,C27,prohibited width
+C19,,C29,prohibited height
+G11,,D7,mandatory cycle path
+G07 / G11,,D9,mandatory footpath and bike path
+E01,,E1,no parking
+E02,,E3,no parking or standstill
+F06,,B21,Should one way give way
+E04,,E9a,parking
+E06,,E9a_miva,handicap parking
+E08,,E9b,parking cars
+E07,,E9c,parking trucks
+E08-3,,E9d,parking busses
+G05,,F12a,yard
+G06,,F12b,end of yard
+L08,,F45,dead end
+L02,,F49,pedestrian crossing
+BW101-R-SP04,,F59,Parking to the right
+B02,,B11,end of priority road
+J04,,A1D,double curve right

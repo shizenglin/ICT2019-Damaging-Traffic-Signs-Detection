@@ -3,3 +3,5 @@ datasets/GTSRB_data/
 __pycache__
 .ipynb_checkpoints
 datasets/NL/
+datasets/BAM_data/
+.idea/
