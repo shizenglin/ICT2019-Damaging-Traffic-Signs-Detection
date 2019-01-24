@@ -1,25 +1,13 @@
 import os
-import ntpath
-import copy
-import glob
+from glob import glob
+import random
 
 from PIL import Image
 import pandas as pd
-
+import numpy as np
 
 from torch.utils.data.dataset import Dataset
-from torchvision.datasets import ImageFolder
-
-
-def _get_all_csv_paths(dir):
-    paths = []
-    for root, _, fnames in sorted(os.walk(dir)):
-        for fname in sorted(fnames):
-            path = os.path.join(root, fname)
-            if path.split('.')[-1] == 'csv':
-                paths.append(path)
-
-    return paths
+from sklearn.model_selection import train_test_split
 
 
 def _join_csv_into_dict_by_paths(paths):
@@ -34,23 +22,55 @@ def _join_csv_into_dict_by_paths(paths):
     return damage_dict
 
 
-class GTSRB_Damaged(ImageFolder):
+class GTSRB(Dataset):
 
-    def __init__(self, root, transform=None, target_transform=None):
-        super(GTSRB_Damaged, self).__init__(root=root,
-                                            transform=transform,
-                                            target_transform=target_transform)
-        paths = _get_all_csv_paths(root)
-        self.damage_dict = _join_csv_into_dict_by_paths(paths)
+    def __init__(self, root, transform=None, train=True, size_filter=None, seed=42, test_size=0.2):
+        super(GTSRB, self).__init__()
+        root = os.path.expanduser(root)
+        csv_paths = glob(os.path.join(root, '**/*.csv'))
+        damage_dict = _join_csv_into_dict_by_paths(csv_paths)
+
+        self.transform = transform
+        self.train = train
+
+        img_paths = sorted(glob(os.path.join(root, '**/*.ppm')))
+        if size_filter:
+            img_paths = filter(lambda x: size_filter(Image.open(x).size), img_paths)
+            img_paths = list(img_paths)
+        prefixes = list(set(p[:-10] for p in img_paths))
+
+        np.random.seed(seed)
+        train_prefixes, test_prefixes = train_test_split(prefixes, test_size=test_size)
+        prefixes = train_prefixes if self.train else test_prefixes
+
+        split_paths = []
+        for p in prefixes:
+            split_paths.extend(list(filter(lambda x: x.startswith(p), img_paths)))
+
+        self.samples = []
+        for p in split_paths:
+            sign_class = int(p[-21:-16])
+            damage_class = damage_dict[p]
+            self.samples.append((p, sign_class, damage_class))
 
     def __getitem__(self, index):
-        """
-        Return:
-            image_tensor, class_label, damage_label
-        """
-        image, label = super(GTSRB_Damaged, self).__getitem__(index)
-        image_path = self.samples[index][0]
-        return image, label, self.damage_dict[image_path]
+        img, sign, damage = self.samples[index]
+
+        with Image.open(img) as img:
+            img = img.convert('RGB')
+
+        if self.transform:
+            img = self.transform(img)
+        return img, sign, damage
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __repr__(self):
+        str_ = self.__class__.__name__
+        str_ += '\n\tSplit: {}'.format('train' if self.train else 'test')
+        str_ += '\n\tImages: {}'.format(len(self))
+        return str_
 
 
 class GTSRB_Seq(Dataset):
@@ -61,7 +81,7 @@ class GTSRB_Seq(Dataset):
     def __init__(self, root, transform=None, size_filter=None):
         super(GTSRB_Seq, self).__init__()
         root = os.path.expanduser(root)
-        paths = _get_all_csv_paths(root)
+        paths = glob(os.path.join(root, '**/*.csv'))
         damage_dict = _join_csv_into_dict_by_paths(paths)
 
         self.transform = transform
@@ -69,7 +89,7 @@ class GTSRB_Seq(Dataset):
 
         for class_idx in range(GTSRB_Seq.num_classes):
             dir_name = os.path.join(root, '{:05d}/*.ppm'.format(class_idx))
-            all_filenames = glob.glob(dir_name)
+            all_filenames = glob(dir_name)
             filtered_prefixes = map(lambda x: x[:-9], all_filenames)
             num_seqs = len(set(filtered_prefixes))
 
@@ -143,9 +163,6 @@ class FlattenSequences(Dataset):
         return str_
 
 
-import random
-
-
 class BAM(Dataset):
 
     def __init__(self, bam_root, damage_types=['graffity'], fillna_class=False, use_stacked=False,
@@ -175,14 +192,10 @@ class BAM(Dataset):
             self.flattened_used_sequences = [image for sequence in self.used_sequences for image
                                              in sequence]
 
-
-
     def _get_bam_sequences(self, bam_root, use_stacked, use_unknown_types, min_area, damage_types,
                            fillna_class):
 
         annotations = pd.read_csv(f'{bam_root}/annotations.csv')
-
-
 
         if fillna_class:
             annotations['class'] = annotations['class'].fillna('undamaged')
@@ -229,7 +242,6 @@ class BAM(Dataset):
         return combined
 
     def __getitem__(self, index):
-
         """Return image, image label and damaged label."""
         print(self.used_sequences[0])
         image, sign, damage = self.flattened_used_sequences[index]
