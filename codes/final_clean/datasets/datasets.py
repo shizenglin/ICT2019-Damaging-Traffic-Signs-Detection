@@ -78,7 +78,7 @@ class BAM(Dataset):
     def __init__(self, bam_root, conversion_table_path, damage_types=['graffity'],
                  fillna_class=False, use_stacked=False,
                  use_unknown_types=True,
-                 size_filter=None
+                 size_filter=None,
                  train=False, test_split=0.2, transform=None,
                  kfold_splits=None, kfold_flag=1):
         super(BAM, self).__init__()
@@ -178,7 +178,6 @@ class BAM(Dataset):
 
     def __getitem__(self, index):
         """Return image, image label and damaged label."""
-        print(self.used_sequences[0])
         image, sign, damage = self.flattened_used_sequences[index]
         image = Image.open(image)
         if self.transform:
