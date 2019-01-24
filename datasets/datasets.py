@@ -172,6 +172,7 @@ class BAM(Dataset):
         super(BAM, self).__init__()
 
         self.transform = transform
+        self.test_split = test_split
         self.class_names = pd.read_csv(conversion_table_path).set_index('NL')['DL'].dropna().astype(
             int).to_dict()
 
@@ -184,11 +185,27 @@ class BAM(Dataset):
         random.shuffle(self.all_sequences)
 
         if train:
-            self.used_sequences = self.all_sequences[int(test_split * len(self.all_sequences)):]
+            self.used_sequences = self.all_sequences[int(self.test_split * len(
+                self.all_sequences)):]
             self.flattened_used_sequences = [image for sequence in self.used_sequences for image
                                              in sequence]
         else:
-            self.used_sequences = self.all_sequences[:int(test_split * len(self.all_sequences))]
+            self.used_sequences = self.all_sequences[:int(self.test_split * len(
+                self.all_sequences))]
+            self.flattened_used_sequences = [image for sequence in self.used_sequences for image
+                                             in sequence]
+
+    def new_k_fold(self, seed, train):
+        random.shuffle(self.all_sequences)
+
+        if train:
+            self.used_sequences = self.all_sequences[int(self.test_split * len(
+                self.all_sequences)):]
+            self.flattened_used_sequences = [image for sequence in self.used_sequences for image
+                                             in sequence]
+        else:
+            self.used_sequences = self.all_sequences[:int(self.test_split * len(
+                self.all_sequences))]
             self.flattened_used_sequences = [image for sequence in self.used_sequences for image
                                              in sequence]
 
