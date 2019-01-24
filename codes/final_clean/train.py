@@ -72,9 +72,9 @@ test_id = args.dataset + '_' + args.model
 
 print(args)
 
-gtsrb_path = './data/GTSRB/Final_Training/Images/'
-bam_path = './data/BAM_data/'
-convention_path = './data/BAM_data/convention_conversion.csv'
+gtsrb_path = './datasets/GTSRB/Final_Training/Images/'
+bam_path = './datasets/BAM_data/'
+convention_path = './datasets/BAM_data/convention_conversion.csv'
 
 train_transform = transforms.Compose([
     transforms.Resize(32),
