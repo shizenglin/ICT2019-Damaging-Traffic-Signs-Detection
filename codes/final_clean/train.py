@@ -35,7 +35,7 @@ model_options = ['resnet18', 'wideresnet']
 dataset_options = ['cifar10','gtsrb']
 
 parser = argparse.ArgumentParser(description='CNN')
-parser.add_argument('--logname', '-d', default='bam-train-test-64',
+parser.add_argument('--logname', '-d', default='bam-train-gtsrb-test-64',
                     choices=dataset_options)
 parser.add_argument('--model', '-a', default='resnet18',
                     choices=model_options)
@@ -59,7 +59,7 @@ parser.add_argument('--seed', type=int, default=0,
                     help='random seed (default: 1)')
 parser.add_argument('--subset', '-s', type=int, default=None,
                     help='use subset of data')
-parser.add_argument('--subfolder', type=int, default=2,
+parser.add_argument('--subfolder', type=int, default=1,
                     help='use subfolder of data')
 
 args = parser.parse_args()
@@ -97,15 +97,15 @@ test_transform = transforms.Compose([
 ])
 
 # create train/test for GTSRB
-#train_dataset = GTSRB(gtsrb_path, train_transform, train=True, test_size=0.0)#, size_filter=lambda x: x > (24, 24
+train_dataset_gtsrb = GTSRB(gtsrb_path, train_transform, train=True, test_size=0.0)#, size_filter=lambda x: x > (24, 24
 #gtsrb_test = GTSRB(gtsrb_path, train_transform, train=False, size_filter=lambda x: x > (24, 24))
 
 # create train/test for BAM
-train_dataset = BAM(bam_path, conversion_table_path=convention_path, train=True, transform=train_transform, kfold_flag=args.subfolder)
+train_dataset_bam = BAM(bam_path, conversion_table_path=convention_path, train=True, transform=train_transform, kfold_flag=args.subfolder)
 test_dataset = BAM(bam_path, conversion_table_path=convention_path, train=False, transform=test_transform, kfold_flag=args.subfolder)
 
 # combination
-#train_dataset = torch.utils.data.dataset.ConcatDataset([gtsrb_train, gtsrb_test])
+train_dataset = torch.utils.data.dataset.ConcatDataset([train_dataset_gtsrb, train_dataset_bam])
 #test_dataset = torch.utils.data.dataset.ConcatDataset([bam_train, bam_test])
 
 ############### Data Loader (Input Pipeline)####################
@@ -153,6 +153,7 @@ def test(loader):
         labels = Variable(labels, volatile=True).cuda()
 
         pred = cnn(images)
+        pred = nn.functional.softmax(pred,dim=1)
         pred_soft_list.append(pred.data)
         pred = torch.max(pred.data, 1)[1]
         pred_list.append(pred)
@@ -240,6 +241,7 @@ for images, image_path, labels in test_loader:
     labels = Variable(labels, volatile=True).cuda()
 
     pred = cnn(images)
+    pred = nn.functional.softmax(pred,dim=1)
     row = {'imgname': image_path[0], 'conscore': str(pred.data[0,1].item()), 'label': str(labels.data[0].item())} 
     csv_logger.writerow(row)   
 csv_logger.close()
