@@ -210,11 +210,20 @@ class BAM(Dataset):
     def __getitem__(self, index):
         """Return image, image label and damaged label."""
         image, sign, damage = self.flattened_used_sequences[index]
+        fn = image
         image = Image.open(image)
         if self.transform:
             image = self.transform(image)
 
-        return image, sign, damage
+        #print(fn)
+        num_tmp = fn[-9:-4]
+        #print(num_tmp)
+        #num = [int(s) for s in fn.split('\\') if s.isdigit()]
+        num = int(num_tmp)
+        #print(num)
+        #print(len(num))
+
+        return image, num, damage
 
     def __len__(self):
         return len(self.flattened_used_sequences)

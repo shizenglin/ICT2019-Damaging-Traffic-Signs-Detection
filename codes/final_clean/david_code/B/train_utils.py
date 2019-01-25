@@ -1,8 +1,9 @@
 import torch
 import torch.nn.functional as F
-
+import sklearn
 import numpy as np
 
+#from util.misc import CSVLogger
 
 def train_nll(model, optimizer, loader, device=torch.device('cuda'), weights=None):
     model.train()
@@ -28,8 +29,8 @@ def test_nll(model, loader, device=torch.device('cuda'), weights=None):
     false_p = 0
     pos = 0
 
-    pred_total = np.empty((0,1))
-    true_total = np.empty((0,1))
+    pred_total = np.empty((0,))
+    true_total = np.empty((0,))
 
     with torch.no_grad():
         for data, _, target in loader:
@@ -58,6 +59,8 @@ def test_nll(model, loader, device=torch.device('cuda'), weights=None):
     accuracy /= num_objects
 
     MAP = sklearn.metrics.average_precision_score(true_total, pred_total)
+
+    print('Amount of positives in dataset %d' % pos)
 
     if pos != 0:
         true_p /= pos
