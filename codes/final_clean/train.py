@@ -6,6 +6,7 @@ import argparse
 import numpy as np
 from tqdm import tqdm
 from copy import copy
+import os
 
 import torch
 import torch.nn as nn
@@ -16,11 +17,11 @@ from torch.optim.lr_scheduler import MultiStepLR
 from torchvision.utils import make_grid
 from torchvision import datasets, transforms
 
-from util.misc import CSVLogger
-from util.cutout import Cutout
+from Cutout.util.misc import CSVLogger
+from Cutout.util.cutout import Cutout
 
-from model.resnet import ResNet18
-from model.wide_resnet import WideResNet
+from Cutout.model.resnet import ResNet18
+from Cutout.model.wide_resnet import WideResNet
 import torch.utils.data as data
 from focalloss import *
 
@@ -75,8 +76,8 @@ test_id = args.logname + '_' + args.model+'_'+str(args.subfolder)
 print(args)
 
 gtsrb_path = './data/GTSRB/Final_Training/Images/'
-bam_path = './data/BAM_data/'
-convention_path = './data/BAM_data/convention_conversion.csv'
+bam_path = './datasets/BAM_data/'
+convention_path = './datasets/BAM_data/convention_conversion.csv'
 
 train_transform = transforms.Compose([
     transforms.Resize(64),
@@ -97,15 +98,15 @@ test_transform = transforms.Compose([
 ])
 
 # create train/test for GTSRB
-train_dataset_gtsrb = GTSRB(gtsrb_path, train_transform, train=True, test_size=0.0)#, size_filter=lambda x: x > (24, 24
+#train_dataset_gtsrb = GTSRB(gtsrb_path, train_transform, train=True, test_size=0.0)#, size_filter=lambda x: x > (24, 24
 #gtsrb_test = GTSRB(gtsrb_path, train_transform, train=False, size_filter=lambda x: x > (24, 24))
 
 # create train/test for BAM
-train_dataset_bam = BAM(bam_path, conversion_table_path=convention_path, train=True, transform=train_transform, kfold_flag=args.subfolder)
+train_dataset = train_dataset_bam = BAM(bam_path, conversion_table_path=convention_path, train=True, transform=train_transform, kfold_flag=args.subfolder)
 test_dataset = BAM(bam_path, conversion_table_path=convention_path, train=False, transform=test_transform, kfold_flag=args.subfolder)
 
 # combination
-train_dataset = torch.utils.data.dataset.ConcatDataset([train_dataset_gtsrb, train_dataset_bam])
+#train_dataset = torch.utils.data.dataset.ConcatDataset([train_dataset_gtsrb, train_dataset_bam])
 #test_dataset = torch.utils.data.dataset.ConcatDataset([bam_train, bam_test])
 
 ############### Data Loader (Input Pipeline)####################
@@ -136,6 +137,7 @@ cnn_optimizer = torch.optim.SGD(cnn.parameters(), lr=args.learning_rate,
 scheduler = MultiStepLR(cnn_optimizer, milestones=[80, 120], gamma=0.1)
 
 filename = 'logs/' + test_id + '.txt'
+os.makedirs('logs', exist_ok=True)
 log_file = open(filename, "w")
 
 def test(loader):
@@ -219,6 +221,7 @@ for epoch in range(args.epochs):
         if test_map>best_map:
             best_map = test_map
             best_epoch = epoch
+        os.makedirs('checkpoints', exist_ok=True)
         torch.save(cnn.state_dict(), 'checkpoints/' + test_id + '_' +str(epoch)+ '.pt')
         tqdm.write('precision: %.3f/%.3f, recall: %.3f/%.3f, map:%.3f, best_map:%.3f' % (test_precision[0],test_precision[1],test_recall[0],test_recall[1],test_map,best_map))
         log_file.write('precision: %.3f/%.3f, recall: %.3f/%.3f, map:%.3f, best_map:%.3f\n' % (test_precision[0],test_precision[1],test_recall[0],test_recall[1],test_map,best_map))

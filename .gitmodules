@@ -1,0 +1,3 @@
+[submodule "codes/final_clean/Cutout"]
+	path = codes/final_clean/Cutout
+	url = https://github.com/uoguelph-mlrg/Cutout
