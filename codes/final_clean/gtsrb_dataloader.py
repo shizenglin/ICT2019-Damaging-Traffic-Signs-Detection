@@ -129,7 +129,7 @@ class BAM(Dataset):
     def _get_bam_sequences(self, bam_root, use_stacked, use_unknown_types, damage_types,
                            fillna_class):
 
-        annotations = pd.read_csv('%s/BAM_annotations_final.csv'%bam_root)
+        annotations = pd.read_csv('%s/annotations.csv'%bam_root)
 
         if fillna_class:
             annotations['class'] = annotations['class'].fillna('undamaged')
